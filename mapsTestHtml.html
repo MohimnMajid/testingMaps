@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>مشاركة موقعي</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      text-align: center;
+    }
+    #map {
+      height: 400px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .popup {
+      display: none;
+      position: fixed;
+      top: 5%;
+      left: 10%;
+      width: 80%;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      box-shadow: 0 0 10px #333;
+      z-index: 1000;
+    }
+    .popup.show { display: block; }
+    #coords, #whatsappLink { display: none; margin-top: 10px; }
+    button {
+      padding: 8px 12px;
+      margin: 5px;
+      border: none;
+      border-radius: 6px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
+    #whatsappLink {
+      display: inline-block;
+      padding: 8px 12px;
+      background: #25D366;
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+<h2>📍 مشاركة موقعي عبر واتساب</h2>
+<button onclick="openMap()">فتح الخريطة</button>
+
+<div class="popup" id="popup">
+  <p>اسحب الخريطة أو العلامة لتحديد موقعك بدقة</p>
+  <div id="map"></div>
+  <button onclick="confirmLocation()">✔️ تأكيد الموقع</button>
+  <p id="coords"></p>
+  <a id="whatsappLink" target="_blank">📨 إرسال عبر واتساب</a><br><br>
+  <button onclick="closeMap()">إغلاق</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script>
+  let map, marker;
+  const phoneNumber = "9647817420071"; // الرقم بصيغة دولية
+  let currentLat, currentLng;
+
+  function openMap() {
+    document.getElementById("popup").classList.add("show");
+
+    if (!map) { // إنشاء الخريطة مرة وحدة فقط
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          initMap(lat, lng);
+        }, () => {
+          initMap(33.3152, 44.3661); // افتراضي: بغداد
+        });
+      } else {
+        alert("المتصفح لا يدعم تحديد الموقع.");
+        initMap(33.3152, 44.3661);
+      }
+    }
+  }
+
+  function initMap(lat, lng) {
+    map = L.map('map').setView([lat, lng], 15);
+
+    // طبقة خريطة من OpenStreetMap (تظهر أسماء الأماكن)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    marker = L.marker([lat, lng], {draggable:true}).addTo(map);
+
+    currentLat = lat;
+    currentLng = lng;
+
+    // تحديث الإحداثيات عند سحب الماركر
+    marker.on("dragend", function() {
+      const pos = marker.getLatLng();
+      currentLat = pos.lat;
+      currentLng = pos.lng;
+    });
+
+    // تحديث عند تحريك الخريطة
+    map.on("moveend", function() {
+      const center = map.getCenter();
+      marker.setLatLng(center);
+      currentLat = center.lat;
+      currentLng = center.lng;
+    });
+
+    // ✅ إضافة مربع البحث عن الأماكن
+    L.Control.geocoder({
+      defaultMarkGeocode: false
+    })
+    .on('markgeocode', function(e) {
+      const bbox = e.geocode.bbox;
+      const poly = L.polygon([
+        bbox.getSouthEast(),
+        bbox.getNorthEast(),
+        bbox.getNorthWest(),
+        bbox.getSouthWest()
+      ]);
+      map.fitBounds(poly.getBounds());
+      marker.setLatLng(e.geocode.center);
+      currentLat = e.geocode.center.lat;
+      currentLng = e.geocode.center.lng;
+    })
+    .addTo(map);
+  }
+
+  function confirmLocation() {
+    const coordsText = `https://www.google.com/maps?q=${currentLat},${currentLng}`;
+    document.getElementById("coords").textContent = coordsText;
+    document.getElementById("coords").style.display = "block";
+
+    // توليد رابط واتساب مباشر
+    const encodedMessage = encodeURIComponent(`موقعي الحالي: ${coordsText}`);
+    document.getElementById("whatsappLink").href =
+      `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    document.getElementById("whatsappLink").style.display = "inline-block";
+  }
+
+  function closeMap() {
+    document.getElementById("popup").classList.remove("show");
+  }
+</script>
+
+</body>
+</html>
